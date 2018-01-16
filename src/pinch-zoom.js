@@ -22,36 +22,9 @@
 
 */
 
+var _ = require('underscore');
+
 // polyfills
-if (typeof Object.assign != 'function') {
-  // Must be writable: true, enumerable: false, configurable: true
-  Object.defineProperty(Object, "assign", {
-    value: function assign(target, varArgs) { // .length of function is 2
-      if (target == null) { // TypeError if undefined or null
-        throw new TypeError('Cannot convert undefined or null to object');
-      }
-
-      var to = Object(target);
-
-      for (var index = 1; index < arguments.length; index++) {
-        var nextSource = arguments[index];
-
-        if (nextSource != null) { // Skip over if undefined or null
-          for (var nextKey in nextSource) {
-            // Avoid bugs when hasOwnProperty is shadowed
-            if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
-              to[nextKey] = nextSource[nextKey];
-            }
-          }
-        }
-      }
-      return to;
-    },
-    writable: true,
-    configurable: true
-  });
-}
-
 if (typeof Array.from != 'function') {
   Array.from = function (object) {
     return [].slice.call(object);
@@ -90,7 +63,11 @@ var definePinchZoom = function () {
                 x: 0,
                 y: 0
             };
-            this.options = Object.assign({}, this.defaults, options);
+            this.options = _.extend(this.defaults, options);
+            // Calculate zoom factor to match original image dimensions
+            if (this.options.originalSize) {
+                this.setOriginalZoomFactor();
+            }
             this.setupMarkup();
             this.bindEvents();
             this.update();
@@ -119,7 +96,9 @@ var definePinchZoom = function () {
             zoomEndEventName: 'pz_zoomend',
             dragStartEventName: 'pz_dragstart',
             dragEndEventName: 'pz_dragend',
-            doubleTapEventName: 'pz_doubletap'
+            doubleTapEventName: 'pz_doubletap',
+            overflowVisible: false,
+            originalSize: false
         },
 
         /**
@@ -252,6 +231,27 @@ var definePinchZoom = function () {
                 x: (scale - 1) * (center.x + this.offset.x),
                 y: (scale - 1) * (center.y + this.offset.y)
             });
+        },
+
+        /**
+         * Resets scale to original
+         */
+        resetScale: function () {
+            this.scaleTo(1, this.getCurrentZoomCenter());
+            this.update();
+        },
+
+        /**
+         * Calculates zoomFactor to match image original image dimensions
+         */
+        setOriginalZoomFactor: function () {
+            ['maxZoom', 'tapZoomFactor'].forEach(function(zoomOption) {
+                if (
+                    this.el.naturalWidth > this.el.clientWidth
+                ) {
+                    this.options[zoomOption] = this.el.naturalWidth / this.el.clientWidth;
+                }
+            }.bind(this));
         },
 
         /**
@@ -532,12 +532,19 @@ var definePinchZoom = function () {
          * Creates the expected html structure
          */
         setupMarkup: function () {
+            var elWidth = this.el.clientWidth,
+                elHeight = this.el.clientHeight;
+
             this.container = buildElement('<div class="pinch-zoom-container"></div>');
             this.el.parentNode.insertBefore(this.container, this.el);
             this.container.appendChild(this.el);
 
-            this.container.style.overflow = 'hidden';
+            this.container.style.overflow = this.options.overflowVisible ? 'visible': 'hidden';
             this.container.style.position = 'relative';
+
+            // Setting dimensions manually to avoid invisible images
+            this.container.style.width = elWidth + 'px';
+            this.container.style.height = elHeight + 'px';
 
             this.el.style.webkitTransformOrigin = '0% 0%';
             this.el.style.mozTransformOrigin = '0% 0%';
@@ -546,6 +553,27 @@ var definePinchZoom = function () {
             this.el.style.transformOrigin = '0% 0%';
 
             this.el.style.position = 'absolute';
+        },
+
+        /**
+         * Resets inline styles and removes container
+         */
+        removeMarkup: function() {
+            var wrapper = this.container.parentNode;
+            this.el.removeAttribute('style');
+            wrapper.removeChild(this.container);
+            wrapper.appendChild(this.el);
+        },
+
+        /**
+         * Resets zoom markup to update container dimensions
+         */
+        updateMarkup: function () {
+            this.removeMarkup();
+            if (this.options.originalSize) {
+                this.setOriginalZoomFactor();
+            }
+            this.setupMarkup();
         },
 
         end: function () {
@@ -561,7 +589,10 @@ var definePinchZoom = function () {
             var self = this;
             detectGestures(this.container, this);
 
-            window.addEventListener('resize', this.update.bind(this));
+            window.addEventListener('resize', _.debounce(function() {
+                self.update();
+                self.updateMarkup();
+            }, 500));
             Array.from(this.el.querySelectorAll('img')).forEach(function(imgEl) {
               imgEl.addEventListener('load', self.update.bind(self));
             });
