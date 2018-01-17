@@ -823,4 +823,4 @@ var definePinchZoom = function () {
 
 var PinchZoom = definePinchZoom();
 
-export default PinchZoom;
+module.exports = PinchZoom;
