@@ -184,6 +184,8 @@ var definePinchZoom = function () {
             if (this.hasInteraction) {
                 return;
             }
+            this.isDoubleTab = true;
+
             if (startZoomFactor > zoomFactor) {
                 center = this.getCurrentZoomCenter();
             }
@@ -454,8 +456,8 @@ var definePinchZoom = function () {
          */
         getTouches: function (event) {
             var rect = this.container.getBoundingClientRect();
-            var posTop = rect.top + document.body.scrollTop;
-            var posLeft = rect.left + document.body.scrollLeft;
+            var posTop = rect.top + window.pageYOffset;
+            var posLeft = rect.left + window.pageXOffset;
 
             return Array.prototype.slice.call(event.touches).map(function (touch) {
                 return {
@@ -767,6 +769,8 @@ var definePinchZoom = function () {
                             target.handleDragEnd(event);
                             break;
                     }
+                } else {
+                    target.isDoubleTab = false;
                 }
 
                 if (fingers === 1) {
@@ -784,7 +788,7 @@ var definePinchZoom = function () {
         });
 
         el.addEventListener('touchmove', function (event) {
-            if(target.enabled) {
+            if(target.enabled && !target.isDoubleTab) {
                 if (firstMove) {
                     updateInteraction(event);
                     if (interaction) {
