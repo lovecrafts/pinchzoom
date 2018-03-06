@@ -439,6 +439,11 @@ var definePinchZoom = function () {
             if (Math.trunc(offsetRight) === 0) { centerX = this.container.offsetWidth; }
             if (Math.trunc(offsetBottom) === 0) { centerY = this.container.offsetHeight; }
 
+            // use center of screen in case image is not yet loaded and container has zero dimensions
+            if (!this.container.offsetWidth || !this.container.offsetHeight) {
+                centerX = centerY = window.innerWidth / 2;
+            }
+
             return {
                 x: centerX,
                 y: centerY
