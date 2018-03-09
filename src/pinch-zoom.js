@@ -436,8 +436,13 @@ var definePinchZoom = function () {
                 centerY = heightOffsetRatio * this.container.offsetHeight / (heightOffsetRatio + 1);
 
             // prevents division by zero
-            if (offsetRight === 0) { centerX = this.container.offsetWidth; }
-            if (offsetBottom === 0) { centerY = this.container.offsetHeight; }
+            if (Math.trunc(offsetRight) === 0) { centerX = this.container.offsetWidth; }
+            if (Math.trunc(offsetBottom) === 0) { centerY = this.container.offsetHeight; }
+
+            // use center of screen in case image is not yet loaded and container has zero dimensions
+            if (!this.container.offsetWidth || !this.container.offsetHeight) {
+                centerX = centerY = window.innerWidth / 2;
+            }
 
             return {
                 x: centerX,
@@ -544,38 +549,13 @@ var definePinchZoom = function () {
             this.container.style.overflow = this.options.overflowVisible ? 'visible': 'hidden';
             this.container.style.position = 'relative';
 
-            // Setting dimensions manually to avoid invisible images
-            this.container.style.width = elWidth + 'px';
-            this.container.style.height = elHeight + 'px';
-
             this.el.style.webkitTransformOrigin = '0% 0%';
             this.el.style.mozTransformOrigin = '0% 0%';
             this.el.style.msTransformOrigin = '0% 0%';
             this.el.style.oTransformOrigin = '0% 0%';
             this.el.style.transformOrigin = '0% 0%';
 
-            this.el.style.position = 'absolute';
-        },
-
-        /**
-         * Resets inline styles and removes container
-         */
-        removeMarkup: function() {
-            var wrapper = this.container.parentNode;
-            this.el.removeAttribute('style');
-            wrapper.removeChild(this.container);
-            wrapper.appendChild(this.el);
-        },
-
-        /**
-         * Resets zoom markup to update container dimensions
-         */
-        updateMarkup: function () {
-            this.removeMarkup();
-            if (this.options.originalSize) {
-                this.setOriginalZoomFactor();
-            }
-            this.setupMarkup();
+            this.el.style.position = 'relative';
         },
 
         end: function () {
@@ -593,7 +573,6 @@ var definePinchZoom = function () {
 
             window.addEventListener('resize', _.debounce(function() {
                 self.update();
-                self.updateMarkup();
             }, 500));
             Array.from(this.el.querySelectorAll('img')).forEach(function(imgEl) {
               imgEl.addEventListener('load', self.update.bind(self));
